@@ -1231,45 +1231,34 @@ class Processor:
         }
 
 
-# --- Fixed Analysis Dialog with Correct Layout Weights for Sidebar Visibility ---
+# --- STEP 1: Interactive Data Analysis Preview Dialog ---
 class AnalysisDialog(ctk.CTkToplevel):
     def __init__(self, parent, df, input_path):
         super().__init__(parent)
-        self.title("Data Analysis & Column Selection Preview")
-        self.geometry("1150x700")
+        self.title("Data Analysis Preview")
+        self.geometry("950x600")
         self.df = df
         self.input_path = input_path
-        self.selected_headers = []
         self.proceed = False
 
-        # FIX: Adjusted grid column weights so sidebar gets guaranteed visible layout space
-        self.grid_columnconfigure(0, weight=3)
-        self.grid_columnconfigure(1, weight=2)
+        self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # --- Top Filter & Search Header Card ---
-        self.filter_frame = ctk.CTkFrame(self, corner_radius=10, fg_color=("gray85", "gray20"))
-        self.filter_frame.grid(row=0, column=0, columnspan=2, padx=20, pady=(20, 10), sticky="ew")
+        # --- Top Search Bar ---
+        self.filter_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.filter_frame.grid(row=0, column=0, padx=20, pady=(15, 5), sticky="ew")
         self.filter_frame.grid_columnconfigure(1, weight=1)
 
-        self.filter_label = ctk.CTkLabel(
-            self.filter_frame, 
-            text="🔍 Quick Search:", 
-            font=ctk.CTkFont(size=13, weight="bold")
-        )
-        self.filter_label.grid(row=0, column=0, padx=(15, 10), pady=12)
+        self.filter_label = ctk.CTkLabel(self.filter_frame, text="🔍 Filter Data:", font=ctk.CTkFont(weight="bold"))
+        self.filter_label.grid(row=0, column=0, padx=(0, 10))
 
-        self.filter_entry = ctk.CTkEntry(
-            self.filter_frame, 
-            placeholder_text="Type keywords to filter preview rows instantly...",
-            height=36
-        )
-        self.filter_entry.grid(row=0, column=1, padx=(0, 15), pady=12, sticky="ew")
+        self.filter_entry = ctk.CTkEntry(self.filter_frame, placeholder_text="Type to search rows instantly...", height=36)
+        self.filter_entry.grid(row=0, column=1, sticky="ew")
         self.filter_entry.bind("<KeyRelease>", self.filter_table)
 
-        # --- Left Side: Data Table Preview Card ---
-        self.table_card = ctk.CTkFrame(self, corner_radius=10)
-        self.table_card.grid(row=1, column=0, padx=(20, 10), pady=10, sticky="nsew")
+        # --- Data Table Preview Grid ---
+        self.table_card = ctk.CTkFrame(self)
+        self.table_card.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
         self.table_card.grid_rowconfigure(0, weight=1)
         self.table_card.grid_columnconfigure(0, weight=1)
 
@@ -1302,51 +1291,15 @@ class AnalysisDialog(ctk.CTkToplevel):
 
         self.populate_tree(df)
 
-        # --- Right Side: Column Header Selector Card ---
-        self.sidebar_card = ctk.CTkFrame(self, corner_radius=10)
-        self.sidebar_card.grid(row=1, column=1, padx=(10, 20), pady=10, sticky="nsew")
-        self.sidebar_card.grid_rowconfigure(1, weight=1)
-        self.sidebar_card.grid_columnconfigure(0, weight=1)
-
-        self.sidebar_title = ctk.CTkLabel(
-            self.sidebar_card, 
-            text="Selective Non-Merge Rules\n(Conflict Check Headers)", 
-            font=ctk.CTkFont(size=13, weight="bold"),
-            justify="center"
-        )
-        self.sidebar_title.grid(row=0, column=0, padx=15, pady=(15, 10))
-
-        self.checkbox_frame = ctk.CTkScrollableFrame(self.sidebar_card, fg_color="transparent")
-        self.checkbox_frame.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-
-        self.header_vars = {}
-        self.none_var = ctk.BooleanVar(value=True)
-        self.none_chk = ctk.CTkCheckBox(
-            self.checkbox_frame, 
-            text="None (Bypass Rule)", 
-            variable=self.none_var, 
-            command=self.on_none_selected,
-            font=ctk.CTkFont(weight="bold")
-        )
-        self.none_chk.pack(anchor="w", pady=(5, 10))
-
-        # Iterating over all columns to populate checkboxes accurately
-        for col in cols:
-            var = ctk.BooleanVar(value=False)
-            chk = ctk.CTkCheckBox(self.checkbox_frame, text=str(col), variable=var, command=self.on_column_selected)
-            chk.pack(anchor="w", pady=6)
-            self.header_vars[str(col)] = var
-
-        # --- Bottom Action Button (Final Export) ---
-        self.export_btn = ctk.CTkButton(
+        # --- Bottom Proceed Button ---
+        self.next_btn = ctk.CTkButton(
             self, 
-            text="🚀 Confirm & Final Export", 
+            text="Proceed to Header Selection ➔", 
             font=ctk.CTkFont(size=14, weight="bold"),
-            height=46,
-            fg_color="#2b8a3e", hover_color="#236b31",
-            command=self.on_export
+            height=44,
+            command=self.on_next
         )
-        self.export_btn.grid(row=2, column=0, columnspan=2, padx=20, pady=(10, 20), sticky="ew")
+        self.next_btn.grid(row=2, column=0, padx=20, pady=15, sticky="ew")
 
         self.transient(parent)
         self.grab_set()
@@ -1365,6 +1318,71 @@ class AnalysisDialog(ctk.CTkToplevel):
         filtered = self.df[self.df.astype(str).apply(lambda x: x.str.lower().str.contains(query).any(), axis=1)]
         self.populate_tree(filtered)
 
+    def on_next(self):
+        self.proceed = True
+        self.destroy()
+
+
+# --- STEP 2: Dedicated Header Selection Pop-Up Dialog ---
+class HeaderSelectionDialog(ctk.CTkToplevel):
+    def __init__(self, parent, columns):
+        super().__init__(parent)
+        self.title("Select Non-Merge Conflict Headers")
+        self.geometry("500x550")
+        self.columns = columns
+        self.selected_headers = []
+        self.confirmed = False
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        # Instruction Header
+        self.title_label = ctk.CTkLabel(
+            self, 
+            text="Select Headers for Duplicate Non-Merge Rule:\n(If values differ between matched names, don't merge)", 
+            font=ctk.CTkFont(size=13, weight="bold"),
+            justify="center"
+        )
+        self.title_label.grid(row=0, column=0, padx=20, pady=(20, 10))
+
+        # Checkbox Scrollable Frame
+        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.scroll_frame.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
+
+        self.header_vars = {}
+        
+        # "None" Checkbox Option
+        self.none_var = ctk.BooleanVar(value=True)
+        self.none_chk = ctk.CTkCheckBox(
+            self.scroll_frame, 
+            text="None (Bypass Rule)", 
+            variable=self.none_var, 
+            command=self.on_none_selected,
+            font=ctk.CTkFont(weight="bold")
+        )
+        self.none_chk.pack(anchor="w", pady=(5, 12))
+
+        # Populate all dataset columns as checkboxes
+        for col in columns:
+            var = ctk.BooleanVar(value=False)
+            chk = ctk.CTkCheckBox(self.scroll_frame, text=str(col), variable=var, command=self.on_column_selected)
+            chk.pack(anchor="w", pady=6)
+            self.header_vars[str(col)] = var
+
+        # Final Export Button
+        self.export_btn = ctk.CTkButton(
+            self, 
+            text="🚀 Confirm & Final Export", 
+            font=ctk.CTkFont(size=14, weight="bold"),
+            height=46,
+            fg_color="#2b8a3e", hover_color="#236b31",
+            command=self.on_confirm
+        )
+        self.export_btn.grid(row=2, column=0, padx=20, pady=20, sticky="ew")
+
+        self.transient(parent)
+        self.grab_set()
+
     def on_none_selected(self):
         if self.none_var.get():
             for col, var in self.header_vars.items():
@@ -1374,17 +1392,17 @@ class AnalysisDialog(ctk.CTkToplevel):
         if any(var.get() for var in self.header_vars.values()):
             self.none_var.set(False)
 
-    def on_export(self):
+    def on_confirm(self):
         if not self.none_var.get():
             self.selected_headers = [col for col, var in self.header_vars.items() if var.get()]
         else:
             self.selected_headers = []
         
-        self.proceed = True
+        self.confirmed = True
         self.destroy()
 
 
-# --- Main Application GUI Class (Preserved from original) ---
+# --- Main Application GUI Class ---
 class SoundexApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -1520,11 +1538,19 @@ class SoundexApp(ctk.CTk):
             messagebox.showerror("Error", f"Failed to read input file:\n{str(e)}")
             return
 
-        dialog = AnalysisDialog(self, df, input_path)
-        self.wait_window(dialog)
+        # Step 1: Open Data Analysis Preview Dialog
+        analysis_dlg = AnalysisDialog(self, df, input_path)
+        self.wait_window(analysis_dlg)
 
-        if dialog.proceed:
-            selected_headers = dialog.selected_headers
+        if not analysis_dlg.proceed:
+            return
+
+        # Step 2: Open Dedicated Header Selection Dialog
+        header_dlg = HeaderSelectionDialog(self, list(df.columns))
+        self.wait_window(header_dlg)
+
+        if header_dlg.confirmed:
+            selected_headers = header_dlg.selected_headers
             self.process_btn.configure(state="disabled", text="Processing...")
             threading.Thread(
                 target=self.run_backend_processing,
