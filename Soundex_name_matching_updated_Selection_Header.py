@@ -911,12 +911,18 @@ class Processor:
 
             sub = df.iloc[members]
             
+            # --- Updated NaN-Safe Conflict Check Logic ---
             has_conflict = False
             if self.selected_columns:
                 for col in self.selected_columns:
                     if col in df.columns:
-                        val_set = set(str(val) for val in sub[col].dropna().unique())
-                        if len(val_set) > 1:
+                        # Extract unique non-blank, non-NaN values
+                        valid_vals = set()
+                        for val in sub[col]:
+                            if nonblank(val):
+                                valid_vals.add(str(val).strip())
+                        # Conflict occurs ONLY if there are 2 or more DIFFERENT valid values (ignoring NaNs)
+                        if len(valid_vals) > 1:
                             has_conflict = True
                             break
 
@@ -1231,7 +1237,7 @@ class Processor:
         }
 
 
-# --- STEP 1: Interactive Data Analysis Preview Dialog ---
+# --- Interactive Data Analysis Preview Dialog ---
 class AnalysisDialog(ctk.CTkToplevel):
     def __init__(self, parent, df, input_path):
         super().__init__(parent)
@@ -1323,7 +1329,7 @@ class AnalysisDialog(ctk.CTkToplevel):
         self.destroy()
 
 
-# --- STEP 2: Dedicated Header Selection Pop-Up Dialog ---
+# --- Dedicated Header Selection Pop-Up Dialog ---
 class HeaderSelectionDialog(ctk.CTkToplevel):
     def __init__(self, parent, columns):
         super().__init__(parent)
@@ -1336,22 +1342,19 @@ class HeaderSelectionDialog(ctk.CTkToplevel):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Instruction Header
         self.title_label = ctk.CTkLabel(
             self, 
-            text="Select Headers for Duplicate Non-Merge Rule:\n(If values differ between matched names, don't merge)", 
+            text="Select Headers for Duplicate Non-Merge Rule:\n(If conflicting values exist between matched names, don't merge)", 
             font=ctk.CTkFont(size=13, weight="bold"),
             justify="center"
         )
         self.title_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        # Checkbox Scrollable Frame
         self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_frame.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
 
         self.header_vars = {}
         
-        # "None" Checkbox Option
         self.none_var = ctk.BooleanVar(value=True)
         self.none_chk = ctk.CTkCheckBox(
             self.scroll_frame, 
@@ -1362,14 +1365,12 @@ class HeaderSelectionDialog(ctk.CTkToplevel):
         )
         self.none_chk.pack(anchor="w", pady=(5, 12))
 
-        # Populate all dataset columns as checkboxes
         for col in columns:
             var = ctk.BooleanVar(value=False)
             chk = ctk.CTkCheckBox(self.scroll_frame, text=str(col), variable=var, command=self.on_column_selected)
             chk.pack(anchor="w", pady=6)
             self.header_vars[str(col)] = var
 
-        # Final Export Button
         self.export_btn = ctk.CTkButton(
             self, 
             text="🚀 Confirm & Final Export", 
