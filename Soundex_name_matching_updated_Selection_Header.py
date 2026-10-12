@@ -1231,19 +1231,20 @@ class Processor:
         }
 
 
-# --- Interactive Analysis Dialog (Fully populated with all dataset headers) ---
+# --- Fixed Analysis Dialog with Correct Layout Weights for Sidebar Visibility ---
 class AnalysisDialog(ctk.CTkToplevel):
     def __init__(self, parent, df, input_path):
         super().__init__(parent)
         self.title("Data Analysis & Column Selection Preview")
-        self.geometry("1000x680")
+        self.geometry("1150x700")
         self.df = df
         self.input_path = input_path
         self.selected_headers = []
         self.proceed = False
 
+        # FIX: Adjusted grid column weights so sidebar gets guaranteed visible layout space
         self.grid_columnconfigure(0, weight=3)
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(1, weight=2)
         self.grid_rowconfigure(1, weight=1)
 
         # --- Top Filter & Search Header Card ---
@@ -1292,7 +1293,7 @@ class AnalysisDialog(ctk.CTkToplevel):
         self.tree_scroll_x.config(command=self.tree.xview)
 
         for col in cols:
-            self.tree.heading(col, text=str(col))
+            self.tree.heading(str(col), text=str(col))
             self.tree.column(str(col), width=130, anchor="w")
 
         self.tree.grid(row=0, column=0, sticky="nsew")
