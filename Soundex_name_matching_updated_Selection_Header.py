@@ -1231,7 +1231,7 @@ class Processor:
         }
 
 
-# --- Modern & User-Friendly Interactive Analysis Dialog ---
+# --- Interactive Analysis Dialog (Fully populated with all dataset headers) ---
 class AnalysisDialog(ctk.CTkToplevel):
     def __init__(self, parent, df, input_path):
         super().__init__(parent)
@@ -1292,8 +1292,8 @@ class AnalysisDialog(ctk.CTkToplevel):
         self.tree_scroll_x.config(command=self.tree.xview)
 
         for col in cols:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=130, anchor="w")
+            self.tree.heading(col, text=str(col))
+            self.tree.column(str(col), width=130, anchor="w")
 
         self.tree.grid(row=0, column=0, sticky="nsew")
         self.tree_scroll_y.grid(row=0, column=1, sticky="ns")
@@ -1329,11 +1329,12 @@ class AnalysisDialog(ctk.CTkToplevel):
         )
         self.none_chk.pack(anchor="w", pady=(5, 10))
 
+        # Iterating over all columns to populate checkboxes accurately
         for col in cols:
             var = ctk.BooleanVar(value=False)
-            chk = ctk.CTkCheckBox(self.checkbox_frame, text=col, variable=var, command=self.on_column_selected)
+            chk = ctk.CTkCheckBox(self.checkbox_frame, text=str(col), variable=var, command=self.on_column_selected)
             chk.pack(anchor="w", pady=6)
-            self.header_vars[col] = var
+            self.header_vars[str(col)] = var
 
         # --- Bottom Action Button (Final Export) ---
         self.export_btn = ctk.CTkButton(
